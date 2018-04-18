@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <title>WebSocket Echo Demo</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="./static/bootstrap.min.css">
+  <script src="./static/jquery-slim.min.js"></script>
+</head>
+
+<body lang="en">
+  <div class="container py-4">
+    <div class="row">
+      <form role="form" id="chat_form" onsubmit="sendMessage(); return false;" class="border p-4 w-100">
+        <div class="form-group">
+          <input class="form-control" type="text" name="title" id="title" placeholder="Title" value="" autofocus/>
+        </div>
+
+        <div class="form-group">
+          <label for="description">Details</label>
+          <textarea class="form-control" id="description" rows="3"></textarea>
+        </div>
+        <button type="button" id="send" class="btn btn-primary" onclick="sendMessage();">New Entry</button>
+
+      </form>
+    </div>
+    <div class="row mt-4 border p-4">
+      <!-- List group -->
+      <div class="col-4">
+        <div class="list-group" id="myList" role="tablist">
+          <a class="list-group-item list-group-item-action" data-toggle="list" href="#home" role="tab" hidden="true">Home</a>
+        </div>
+      </div>
+
+      <!-- Tab panes -->
+      <div class="col-8">
+        <div class="tab-content">
+          <div class="tab-pane fade" id="home" role="tabpanel" hidden="true">First Tabbatha</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+  <script src="./static/popper.min.js"></script>
+  <script src="./static/bootstrap.min.js"></script>
+  <script>
+      var ws;
+      var firstRequest = true;
+
+      function onopen(e) {
+        console.log('Connection to server opened');
+        if (firstRequest) {
+          const getAll = JSON.stringify({ type: "all" });
+          ws.send(getAll);
+          firstRequest = false;
+        }
+      }
+
+      function handleIncomingMessage(message) {
+        const data = JSON.parse(message.data);
+  
+        if (data.type === "all") {
+          const entriesArray = Object.values(data.entries);
+          // console.log(JSON.stringify(data, null, 2));
+  
+          entriesArray.forEach(entry => {
+            addEntry(entry);
+          });
+  
+          $('#myList a:nth-child(2)').addClass('active');
+          $('.tab-content div:nth-child(2)').addClass('show active');
+        }
+  
+        if (data.type === "create") {
+          addEntry(data);
+        }
+      }
+
+      function start(url) {
+        ws = new WebSocket(url);
+        
+        ws.onopen = onopen;
+        ws.onclose = function(e) {
+          if (e.code != 1000) start(url)
+          else console.log(e);
+        }
+        ws.onmessage = handleIncomingMessage;
+        ws.onerror = function(e) {
+          console.log('error');
+          if (e.code === 'ECONNREFUSED') start(url);
+          else console.log(e);
+        };
+      }     
+  
+      function clearFormFields() {
+        $("#title").val('');
+        $("#description").val('');
+      }
+      
+      function sendMessage() {
+        const sendObj = {
+          type: "create",
+          title: $("#title").val(),
+          description: $("#description").val(),
+          time: Date.now()
+        };
+        ws.send(JSON.stringify(sendObj));
+
+        clearFormFields();
+      }
+
+      function addEntry(entry) {
+        $('#myList a:last-child').after(`<a class="list-group-item list-group-item-action" data-toggle="list" id="tab${entry.id}" href="#${entry.id}" role="tab">${entry.title}</a>`);
+        $('.tab-content div:last-child').after(`<div class="tab-pane fade" id="${entry.id}" role="tabpanel">${entry.description}</div>`)
+      }
+
+      start("ws://localhost:8181");
+  </script>
+</body>
+
+</html>
